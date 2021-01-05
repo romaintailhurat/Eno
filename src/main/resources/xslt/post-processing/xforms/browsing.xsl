@@ -537,6 +537,7 @@
                                             nodeset="instance('fr-form-instance')//{@id}/{$dynamic-array}"
                                             position="after"
                                             origin="instance('fr-form-loop-model')/{@id}/{$dynamic-array}"/>
+                                        <!-- TODO : manage linked loops inside another loop : the value does not come from the occurence's ancestor -->
                                         <xf:setvalue ref="instance('fr-form-instance')//{@id}/{$dynamic-array}[last()]/@occurrence-id"
                                             value="instance('fr-form-instance')//{$container}/{$dynamic-array}[position() = count(instance('fr-form-instance')//{@id}/{$dynamic-array})]/@occurrence-id"/>
                                     </xf:action>
@@ -556,7 +557,7 @@
             <!-- Page changing action -->
             <xf:action ev:event="page-change">
                 <!-- Iterating on every field of the current page and doing a DOMFocusOut in order to display potential error messages -->
-                <xf:action iterate="instance('fr-form-instance')//*[name()=instance('fr-form-instance')/Util/CurrentSectionName]//*">
+                <xf:action iterate="instance('fr-form-instance')//*[name()=instance('fr-form-instance')/Util/CurrentSectionName]//*[not(ancestor::*[@idOccurrence and ancestor::*[name()=instance('fr-form-instance')/Util/CurrentSectionName]])]">
                     <xf:dispatch name="DOMFocusOut">
                         <xsl:attribute name="target">
                             <xsl:value-of select="'{concat(context()/name(),''-control'')}'"/>
@@ -865,22 +866,8 @@
         <xsl:variable name="relevant" select="//xf:bind[@name=$module-name]/@relevant"/>
 
         <xf:bind id="page-{name()}-bind" name="{name()}" ref="{name()}">
-            <xsl:if test="$relevant != ''">
-                <xsl:choose>
-                    <xsl:when test="$ancestor-loops//Loop">
-                        <xf:calculate>
-                            <xsl:attribute name="value">
-                                <xsl:call-template name="improve-bind-formula">
-                                    <xsl:with-param name="attribute" select="concat('xxf:evaluate(''',replace($relevant,'''',''''''),''')')"/>
-                                    <xsl:with-param name="ancestor-loops" as="node()" select="$ancestor-loops"/>
-                                </xsl:call-template>
-                            </xsl:attribute>
-                        </xf:calculate>
-                    </xsl:when>
-                    <xsl:otherwise>
-                        <xf:calculate value="xxf:evaluate-bind-property('{name()}-bind','relevant')"/>
-                    </xsl:otherwise>
-                </xsl:choose>
+            <xsl:if test="$relevant != '' or $ancestor-loops//Loop">
+                <xf:calculate value="xxf:evaluate-bind-property('{name()}-bind','relevant')"/>
             </xsl:if>
             <!-- Creating a constraint for each warning-level constraint -->
             <xsl:apply-templates select="//xf:bind[@name=$module-name]/*" mode="page-check">
@@ -969,14 +956,14 @@
         <xsl:copy>
             <xsl:apply-templates select="@*"/>
             <xsl:attribute name="value">
-                <xsl:value-of select="'instance(''fr-form-instance'')'"/>
+                <xsl:value-of select="'count(instance(''fr-form-instance'')'"/>
                 <xsl:for-each select="ancestor::xf:repeat">
                     <xsl:sort order="descending"/>
                     <xsl:variable name="ancestor-container" select="@id"/>
                     <xsl:variable name="ancestor-group-name" select="substring-after(@nodeset,concat($ancestor-container,'/'))"/>
-                    <xsl:value-of select="concat('//',$ancestor-group-name,'[@occurrence-id = instance(''fr-form-instance'')/Util/CurrentLoopElement[@loop-name=''',$ancestor-container,''']]')"/>
+                    <xsl:value-of select="concat('//',$ancestor-container,'/',$ancestor-group-name,'[@occurrence-id = instance(''fr-form-instance'')/Util/CurrentLoopElement[@loop-name=''',$ancestor-container,''']]')"/>
                 </xsl:for-each>
-                <xsl:value-of select="'/count(preceding-sibling::*)+1'"/>
+                <xsl:value-of select="'/preceding-sibling::*)+1'"/>
             </xsl:attribute>
             <xsl:apply-templates select="node()"/>
         </xsl:copy>
